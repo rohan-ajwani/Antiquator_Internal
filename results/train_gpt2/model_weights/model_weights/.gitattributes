@@ -1,6 +1,0 @@
-.pt filter=lfs diff=lfs merge=lfs -text
-*.pt filter=lfs diff=lfs merge=lfs -text
-gpt2_0frozen_0.0001lr_3epochs.pt filter=lfs diff=lfs merge=lfs -text
-gpt2_0frozen_0.0001lr_5epochs.pt filter=lfs diff=lfs merge=lfs -text
-gpt2_0frozen_8e-05lr_3epochs.pt filter=lfs diff=lfs merge=lfs -text
-gpt2_0frozen_8e-05lr_5epochs.pt filter=lfs diff=lfs merge=lfs -text
