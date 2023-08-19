@@ -233,7 +233,7 @@ for epoch in range(config['n_epochs']):
     wandb.log({**train_metrics, **val_metrics})
 
 
-save_name = '/checkpoint/ajwaniro/Formality_Classifier/gpt2_gyafc_'+str(args.learning_rate)+'lr_'+str(args.n_epochs)+'epochs.pt'
+save_name = 'Formality_Classifier/gpt2_gyafc_'+str(args.learning_rate)+'lr_'+str(args.n_epochs)+'epochs.pt'
 print("Save name:",save_name)
 torch.save(model.state_dict(), save_name)
 print("Saved Model")
