@@ -72,7 +72,7 @@ config = dict(generator_model=args.generator_model,
 wandb.login()
 
 
-project_name = 'Plug n Play GYAFC OOD Dataset Prompt'
+project_name = 'Plug n Play'
 
 
 wandb.init(project=project_name, name=run_name, config=config)
@@ -175,7 +175,7 @@ print("Loaded Generator Model")
 ### GET CLASSIFIER ###
 
 
-classifier_checkpoint = "/checkpoint/ajwaniro/Formality_Classifier/gpt2_gyafc_3e-05lr_2epochs.pt"
+classifier_checkpoint = args.classifier_checkpoint
 classifier_tokenizer = GPT2Tokenizer.from_pretrained(args.classifier_model)
 classifier_tokenizer.padding_side = 'left'
 
@@ -214,7 +214,7 @@ prompt_embeddings = embed.requires_grad_(True)
 
 ### HELPER FUNCTIONS ###
 ## 1. CCE
-## 2. Gumbel Noise
+## 2. Find n-grams
 
 def CategoricalCrossEntropy(output_logits, target_logits):  #output_logits are of shape [bsz,vocab], targets are of shape [bsz], attention_slice is of size [bsz]
 
@@ -231,9 +231,19 @@ def CategoricalCrossEntropy(output_logits, target_logits):  #output_logits are o
     return CCE_Final
 
 
-def gumbel_noise(shape, eps=1e-20):
-    U = torch.rand(shape)
-    return -torch.log(-torch.log(U + eps) + eps)
+
+def get_ngrams(sentence, n):
+    words = sentence.split()
+    ngrams = set()
+
+    if n <= 0 or n > len(words):
+        return ngrams
+
+    for i in range(len(words) - n + 1):
+        ngram = " ".join(words[i:i+n])
+        ngrams.add(ngram)
+
+    return ngrams
 
 ### HELPER FUNCTION DONE ###
 
@@ -314,9 +324,6 @@ def generate(batch_x):
 
         
         softmax_logits_withPrompt = torch.exp(nn.LogSoftmax(dim=1)(logits_withPrompt/temperature))
-        #softmax_logits_withoutPrompt = torch.exp(nn.LogSoftmax(dim=1)(logits_withoutPrompt/0.000001))
-
-
 
         next_tokens_withoutPrompt = torch.argmax(logits_withPrompt, dim=1)  # (bsz) Note: No gradients here
         next_tokens_withoutPrompt = next_tokens_withoutPrompt.unsqueeze(1)  # (bsz,1)
@@ -412,26 +419,6 @@ def generate_sampling(batch_x):
 
 
 
-
-### Find n-grams ###
-
-def get_ngrams(sentence, n):
-    words = sentence.split()
-    ngrams = set()
-
-    if n <= 0 or n > len(words):
-        return ngrams
-
-    for i in range(len(words) - n + 1):
-        ngram = " ".join(words[i:i+n])
-        ngrams.add(ngram)
-
-    return ngrams
-
-
-
-
-
 ### TRAIN AND VALIDATE ###
 
 for epoch in range(args.n_epochs):
@@ -521,9 +508,6 @@ for epoch in range(args.n_epochs):
     val_loss = 0
     val_correct = 0
 
-    val_table = BeautifulTable(maxwidth=150)
-    val_table.rows.append(["Input", "Output Greedy", "Output Sampled"])
-
     for batch in val_dataloader:
         input_decoded = batch['x']
         batch_x = generator_tokenizer(batch['x'], padding=True, truncation=True)
@@ -561,7 +545,6 @@ for epoch in range(args.n_epochs):
         
         greedy_perplexity += perplexity.compute(model_id=args.generator_model, add_start_token=False, predictions=output_decoded)['mean_perplexity']/len(val_dataloader)
 
-        sampled_perplexity += perplexity.compute(model_id=args.generator_model, add_start_token=False, predictions=output_sampled_decoded)['mean_perplexity']/len(val_dataloader)
         
         for i in range(len(output_decoded)):
             words = len(output_decoded[i].split(' '))
@@ -574,27 +557,13 @@ for epoch in range(args.n_epochs):
             dist_2_greedy += (len(n_grams_2)/(words-1))/args.val_data_size
             dist_3_greedy += (len(n_grams_3)/(words-2))/args.val_data_size
 
-        #for i in range(len(output_sampled_decoded)):
-        #    words = len(output_sampled_decoded[i].split(' '))
-        
-        #    n_grams_1 = get_ngrams(output_sampled_decoded[i],1)
-        #    n_grams_2 = get_ngrams(output_sampled_decoded[i],2)
-        #    n_grams_3 = get_ngrams(output_sampled_decoded[i],3)
-
-         #   dist_1_sampled += (len(n_grams_1)/words)/args.val_data_size
-         #   dist_2_sampled += (len(n_grams_2)/(words-1))/args.val_data_size
-         #   dist_3_sampled += (len(n_grams_3)/(words-2))/args.val_data_size
 
         
     val_metrics = {"Correctly classified (Val)": val_correct}
-                    #"Greedy Perplexity (Val)":greedy_perplexity,
-                    #"Sampled Perplexity (Val)":sampled_perplexity,
-                    #"Greedy Dist-1 (Val)":dist_1_greedy,
-                    #"Greedy Dist-2 (Val)":dist_2_greedy,
-                    #"Greedy Dist-3 (Val)":dist_3_greedy,
-                    #"Sampled Dist-1 (Val)":dist_1_sampled,
-                    #"Sampled Dist-2 (Val)":dist_2_sampled,
-                    #"Sampled Dist-3 (Val)":dist_3_sampled}
+                    "Greedy Perplexity (Val)":greedy_perplexity,
+                    "Greedy Dist-1 (Val)":dist_1_greedy,
+                    "Greedy Dist-2 (Val)":dist_2_greedy,
+                    "Greedy Dist-3 (Val)":dist_3_greedy}
 
  
 
